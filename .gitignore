@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.db
+
+# Node
+node_modules/
+dist/
+
+# Data (raw dataset stays out of version control per Section 5)
+backend/data/raw/*
+!backend/data/raw/.gitkeep
+backend/data/processed/*
+!backend/data/processed/.gitkeep
+
+# Misc
+.DS_Store
+.env
