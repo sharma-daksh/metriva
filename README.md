@@ -1,4 +1,10 @@
 # Metriva — Payment Intelligence & Revenue Recovery
+
+**Status: working MVP.** Data pipeline (Phases 2–10) + a live dashboard
+(Overview, Incidents, Incident Detail) backed by real detected incidents.
+Root-cause analysis, recovery simulation, XAI, and CSV upload are not built
+yet (Phases 12+).
+
 ## Architecture
 
 ```
@@ -49,11 +55,11 @@ scale; a real DB layer is Phase 45).
 ```bash
 cd backend
 pip install -r requirements.txt --break-system-packages
-python -m app.services.pipeline        
-python -m scripts.inject_incidents     
-python -m scripts.compute_incidents    
+python -m app.services.pipeline        # raw dataset -> transactions.csv, merchants.csv, daily_metrics.csv
+python -m scripts.inject_incidents     # -> incident_transactions.csv, ground_truth_incidents.csv
+python -m scripts.compute_incidents    # recomputes daily_metrics.csv/merchant_metrics.csv from the
+                                        # incident-injected data, then -> incidents.csv, anomalies.csv
 ```
-
 
 **2. Backend: start the API**
 ```bash
@@ -68,3 +74,31 @@ cd frontend
 npm install
 npm run dev
 ```
+Open the printed URL (`http://localhost:5173`). You should see:
+- **Overview**: a merchant selector (defaults to the riskiest merchant), KPI
+  cards, a failure-rate-over-time chart, and an active-alerts feed
+- **Incidents**: a filterable table of all 100+ detected incidents
+- Clicking any incident opens its **detail page**: baseline vs. incident
+  failure rate, a WATCH→ACTIVE→RECOVERING→RESOLVED timeline, and the
+  revenue-at-risk range with its methodology stated explicitly
+
+## What's real vs. not yet built
+
+Real, computed, tested: dataset generation, canonical schema, data quality
+validation, daily/merchant metrics, historical baselines, volume-aware
+anomaly detection (binomial test + automatic window widening for
+low-volume merchants), incident grouping with lifecycle states, revenue-
+at-risk (excess-failures methodology, not raw failed-transaction value),
+and 6 controlled ground-truth scenarios for future evaluation.
+
+Not yet built: root-cause analysis (which bank/network/device is driving
+an incident), the "what if?" counterfactual UI, recovery simulation and
+execution, the audit trail, SHAP/LIME explanations, and CSV upload. These
+are Phases 12 onward.
+
+## Next phase
+
+Phase 11 — automated detector evaluation: run the detector blind against
+`ground_truth_incidents.csv` and report precision/recall/F1/detection
+delay, so the numbers on this dashboard have a measured accuracy behind
+them rather than just "it looks right."

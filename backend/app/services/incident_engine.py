@@ -26,14 +26,15 @@ from datetime import date, timedelta
 
 import pandas as pd
 
+from app.services.baseline import compute_baseline
+from app.services.revenue import compute_revenue_at_risk
+
 MAX_GAP_DAYS_TO_MERGE = 2  # anomalous days this close together are one incident
 MIN_PERSISTENCE_DAYS = 2  # anomalous days needed to escalate WATCH -> ACTIVE
 RESOLUTION_QUIET_DAYS = 3  # consecutive non-anomalous days needed to call it RESOLVED
 MIN_TRANSACTIONS_FOR_RESOLUTION_CHECK = 10  # pooled evidence floor for the quiet-period check
 
-# Revenue-at-risk uncertainty band, applied to the point estimate (Section 12:
-# "provide a range rather than an unjustified exact figure").
-REVENUE_AT_RISK_UNCERTAINTY_PCT = 0.15
+# Revenue-at-risk uncertainty band lives in app.services.revenue now.
 
 
 @dataclass
@@ -170,9 +171,8 @@ def build_incidents_for_merchant(
         expected_failures = baseline_rate * total_transactions
         excess_failures = max(0.0, failed_transactions - expected_failures)
 
-        raq_point = excess_failures * avg_transaction_value
-        revenue_at_risk_low = raq_point * (1 - REVENUE_AT_RISK_UNCERTAINTY_PCT)
-        revenue_at_risk_high = raq_point * (1 + REVENUE_AT_RISK_UNCERTAINTY_PCT)
+        rar = compute_revenue_at_risk(excess_failures, avg_transaction_value)
+        revenue_at_risk_low, revenue_at_risk_high = rar.low_estimate, rar.high_estimate
 
         excess_pp = (incident_failure_rate - baseline_rate) * 100
         severity = _severity_from_excess(excess_pp)
@@ -226,6 +226,15 @@ def build_incidents_for_merchant(
     return incidents
 
 
+_INCIDENT_COLUMNS = [
+    "incident_id", "merchant_id", "start_date", "detection_date", "end_date",
+    "duration_days", "baseline_failure_rate", "incident_failure_rate",
+    "peak_failure_rate", "failed_transactions", "expected_failures",
+    "excess_failures", "revenue_at_risk_low", "revenue_at_risk_high",
+    "severity", "confidence", "detection_delay_days", "status", "anomalous_days",
+]
+
+
 def build_incidents_all_merchants(
     anomaly_points: pd.DataFrame, daily_metrics: pd.DataFrame
 ) -> pd.DataFrame:
@@ -236,7 +245,12 @@ def build_incidents_all_merchants(
         )
 
     if not all_incidents:
-        return pd.DataFrame()
+        # A columnless empty DataFrame writes an unparseable CSV (pandas
+        # raises EmptyDataError trying to read it back) — genuinely
+        # possible on real uploaded data with no detectable incidents, not
+        # just a theoretical edge case (caught via a live upload test).
+        # Keep the schema even when there's nothing to report.
+        return pd.DataFrame(columns=_INCIDENT_COLUMNS)
 
     rows = [
         {**vars(inc), "anomalous_days": ",".join(str(d) for d in inc.anomalous_days)}

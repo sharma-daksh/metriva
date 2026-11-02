@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchIncident } from "../services/api";
+import { fetchIncident, fetchIncidentRootCause, fetchIncidentRecovery, executeRecovery } from "../services/api";
 import { KpiCard, SeverityBadge, StatusBadge } from "../components/Cards";
 
 const formatInr = (n) =>
@@ -12,10 +12,16 @@ const TIMELINE_STAGES = ["WATCH", "ACTIVE", "RECOVERING", "RESOLVED"];
 export default function IncidentDetailPage() {
   const { incidentId } = useParams();
   const [incident, setIncident] = useState(null);
+  const [rootCause, setRootCause] = useState(null);
+  const [recovery, setRecovery] = useState(null);
   const [error, setError] = useState(null);
+  const [executing, setExecuting] = useState(false);
+  const [executeResult, setExecuteResult] = useState(null);
 
   useEffect(() => {
     fetchIncident(incidentId).then(setIncident).catch((e) => setError(e.message));
+    fetchIncidentRootCause(incidentId).then(setRootCause).catch((e) => setError(e.message));
+    fetchIncidentRecovery(incidentId).then(setRecovery).catch((e) => setError(e.message));
   }, [incidentId]);
 
   if (error) return <p style={{ color: "#991b1b" }}>Failed to load incident: {error}</p>;
@@ -110,6 +116,142 @@ export default function IncidentDetailPage() {
           value, with a ±15% uncertainty band — not the value of every failed transaction.
         </p>
       </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Why is this happening?</h2>
+        {!rootCause ? (
+          <p style={{ color: "#6b7280" }}>Loading root-cause analysis…</p>
+        ) : rootCause.dimensions.length === 0 ? (
+          <p style={{ color: "#6b7280" }}>{rootCause.note || "Not enough evidence to attribute a cause."}</p>
+        ) : (
+          <>
+            <p style={styles.rootCauseIntro}>
+              We compare this merchant's normal failure rate against the incident period across five
+              transaction attributes — network, receiving bank, device, customer state, and merchant
+              category — to see which shifted the most.
+            </p>
+            <div style={styles.dimensionList}>
+              {rootCause.dimensions.map((d) => (
+                <div key={d.dimension} style={styles.dimensionCard}>
+                  <div style={styles.dimensionRank}>
+                    {d.rank === 1 ? "Primary factor" : d.rank === 2 ? "Secondary factor" : "Additional factor"}
+                  </div>
+                  <div style={styles.dimensionValue}>
+                    {d.value} <span style={styles.dimensionLabel}>({d.dimension_label})</span>
+                  </div>
+                  <div style={styles.dimensionRates}>
+                    Failure rate: {formatPct(d.baseline_failure_rate)} normally → {formatPct(d.incident_failure_rate)}
+                    {" "}during this incident, across {d.incident_transactions} transactions
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p style={styles.note}>
+              This shows correlated deterioration, not proven causality — these factors moved together
+              with the incident, but that isn't the same as confirming what caused it.
+            </p>
+          </>
+        )}
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Revenue Recovery</h2>
+        {!recovery ? (
+          <p style={{ color: "#6b7280" }}>Loading recovery recommendation…</p>
+        ) : (
+          <>
+            <div style={styles.recoveryHeader}>
+              <span style={styles.recoveryAction}>{recovery.action.replace(/_/g, " ")}</span>
+              {recovery.simulation && <span style={styles.simulationBadge}>SIMULATION</span>}
+            </div>
+            <p style={{ color: "#374151", fontSize: "0.88rem", marginTop: 4 }}>{recovery.reason}</p>
+
+            {recovery.policy && (
+              <div style={styles.policyBox}>
+                <div style={styles.policyTitle}>Bounded policy</div>
+                <ul style={styles.policyList}>
+                  <li>Maximum retries: {recovery.policy.max_retries}</li>
+                  <li>Cooldown: {recovery.policy.cooldown_minutes} minutes</li>
+                  {recovery.policy.eligibility_rules.map((r) => <li key={r}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {recovery.simulation && (
+              <div style={styles.simGrid}>
+                <div>
+                  <div style={styles.revLabel}>Eligible</div>
+                  <div style={styles.revValue}>{recovery.simulation.eligible_count}</div>
+                </div>
+                <div>
+                  <div style={styles.revLabel}>Proposed retries</div>
+                  <div style={styles.revValue}>{recovery.simulation.proposed_retries}</div>
+                </div>
+                <div>
+                  <div style={styles.revLabel}>Projected recoverable</div>
+                  <div style={styles.revValue}>{formatInr(recovery.simulation.projected_recoverable_amount)}</div>
+                </div>
+                <div>
+                  <div style={styles.revLabel}>Successful recoveries</div>
+                  <div style={{ ...styles.revValue, color: "#166534" }}>{recovery.simulation.successful_recoveries}</div>
+                </div>
+                <div>
+                  <div style={styles.revLabel}>Recovered amount</div>
+                  <div style={{ ...styles.revValue, color: "#166534" }}>{formatInr(recovery.simulation.recovered_amount)}</div>
+                </div>
+                <div>
+                  <div style={styles.revLabel}>Failed retries / skipped</div>
+                  <div style={styles.revValue}>{recovery.simulation.failed_retries} / {recovery.simulation.skipped}</div>
+                </div>
+              </div>
+            )}
+
+            {recovery.simulation && (
+              <p style={styles.note}>
+                Simulated — no live or test-mode payment API was called. Retry success is modeled at
+                an assumed {formatPct(recovery.simulation.retry_success_probability_assumed)} probability per
+                transaction, not a measured system property.
+              </p>
+            )}
+
+            {recovery.simulation && (
+              <div style={{ marginTop: 16 }}>
+                <button
+                  style={{ ...styles.executeBtn, ...(executing ? styles.executeBtnDisabled : {}) }}
+                  disabled={executing}
+                  onClick={async () => {
+                    setExecuting(true);
+                    setExecuteResult(null);
+                    try {
+                      const result = await executeRecovery(incidentId);
+                      setExecuteResult({ ok: true, ...result });
+                    } catch (e) {
+                      setExecuteResult({ ok: false, message: e.message });
+                    } finally {
+                      setExecuting(false);
+                    }
+                  }}
+                >
+                  {executing ? "Executing…" : "Execute Recovery"}
+                </button>
+                <span style={styles.executeNote}>Writes a record to the Audit Trail.</span>
+
+                {executeResult && (
+                  <p style={{
+                    ...styles.note,
+                    color: executeResult.ok ? "#166534" : "#991b1b",
+                    marginTop: 10,
+                  }}>
+                    {executeResult.ok
+                      ? `${executeResult.message} Recovered ${formatInr(executeResult.recovered_amount)} across ${executeResult.successful_recoveries} successful attempt(s).`
+                      : executeResult.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -141,4 +283,32 @@ const styles = {
   revLabel: { fontSize: "0.78rem", color: "#6b7280" },
   revValue: { fontSize: "1.2rem", fontWeight: 700, marginTop: 4 },
   note: { fontSize: "0.78rem", color: "#9ca3af", marginTop: 16 },
+  rootCauseIntro: { fontSize: "0.85rem", color: "#4b5563", marginBottom: 16, lineHeight: 1.5 },
+  dimensionList: { display: "flex", flexDirection: "column", gap: 10 },
+  dimensionCard: {
+    padding: "12px 16px", borderRadius: 8, border: "1px solid #f3f4f6", backgroundColor: "#fafafa",
+  },
+  dimensionRank: {
+    fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
+    color: "#dc2626", marginBottom: 4,
+  },
+  dimensionValue: { fontSize: "1rem", fontWeight: 700, color: "#111827" },
+  dimensionLabel: { fontWeight: 400, color: "#9ca3af", fontSize: "0.85rem" },
+  dimensionRates: { fontSize: "0.8rem", color: "#4b5563", marginTop: 4 },
+  recoveryHeader: { display: "flex", alignItems: "center", gap: 10 },
+  recoveryAction: { fontSize: "1rem", fontWeight: 700, textTransform: "capitalize", color: "#111827" },
+  simulationBadge: {
+    fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.05em", color: "#92400e",
+    backgroundColor: "#fef3c7", padding: "2px 8px", borderRadius: 4,
+  },
+  policyBox: { backgroundColor: "#f9fafb", border: "1px solid #f0f0f0", borderRadius: 8, padding: "12px 16px", marginTop: 14 },
+  policyTitle: { fontSize: "0.78rem", fontWeight: 700, color: "#6b7280", marginBottom: 6 },
+  policyList: { margin: 0, paddingLeft: 18, fontSize: "0.8rem", color: "#374151", lineHeight: 1.6 },
+  simGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginTop: 20 },
+  executeBtn: {
+    padding: "9px 18px", borderRadius: 8, border: "none", backgroundColor: "#0f172a",
+    color: "white", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer",
+  },
+  executeBtnDisabled: { opacity: 0.5, cursor: "not-allowed" },
+  executeNote: { marginLeft: 10, fontSize: "0.78rem", color: "#9ca3af" },
 };

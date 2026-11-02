@@ -5,7 +5,8 @@ import math
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from app.storage.repositories import load_daily_metrics, load_incidents, load_merchant_metrics
+from app.storage.repositories import load_daily_metrics, load_incidents, load_merchant_metrics, load_transactions
+from app.services.metrics import compute_dimension_failure_rates, compute_daily_merchant_metrics
 
 router = APIRouter(prefix="/merchants", tags=["merchants"])
 
@@ -107,3 +108,113 @@ def get_merchant_daily_metrics(merchant_id: str):
         }
         for _, row in merchant_daily.iterrows()
     ]
+
+
+_BREAKDOWN_DIMENSIONS = {
+    "receiver_bank": "Receiving Bank",
+    "network_type": "Network",
+    "device_type": "Device",
+    "state": "Customer State",
+    "merchant_category": "Merchant Category",
+}
+_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+@router.get("/{merchant_id}/analytics")
+def get_merchant_analytics(
+    merchant_id: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """
+    Phase 30 — Payment Analytics page data. Everything needed for the
+    charts: the daily time series (reused from daily-metrics) plus
+    breakdowns by bank/network/device/state/category/hour/day-of-week,
+    each with a real failure_rate so a bar chart can show "which slice is
+    worse than average", not just raw counts.
+
+    start_date/end_date (YYYY-MM-DD, inclusive) filter BOTH the time series
+    and the breakdowns to that range — a date filter that only truncated
+    the chart while leaving "which bank is worst" computed over the whole
+    year would be misleading (Section 30: "Provide date filters").
+    """
+    transactions = load_transactions()
+    merchant_tx = transactions[transactions["merchant_id"] == merchant_id].copy()
+    if merchant_tx.empty:
+        raise HTTPException(status_code=404, detail=f"No transactions for {merchant_id}.")
+
+    merchant_tx["timestamp"] = pd.to_datetime(merchant_tx["timestamp"])
+
+    if start_date:
+        merchant_tx = merchant_tx[merchant_tx["timestamp"].dt.date >= pd.Timestamp(start_date).date()]
+    if end_date:
+        merchant_tx = merchant_tx[merchant_tx["timestamp"].dt.date <= pd.Timestamp(end_date).date()]
+    if merchant_tx.empty:
+        raise HTTPException(status_code=404, detail=f"No transactions for {merchant_id} in that date range.")
+
+    merchant_tx["hour"] = merchant_tx["timestamp"].dt.hour
+    merchant_tx["day_of_week"] = merchant_tx["timestamp"].dt.dayofweek
+
+    breakdowns = {}
+    for dim, label in _BREAKDOWN_DIMENSIONS.items():
+        rates = compute_dimension_failure_rates(merchant_tx, dim)
+        breakdowns[dim] = {
+            "label": label,
+            "values": [
+                {
+                    "value": str(row[dim]),
+                    "transaction_count": int(row["transaction_count"]),
+                    "failure_count": int(row["failure_count"]),
+                    "failure_rate": _clean(round(float(row["failure_rate"]), 4)),
+                }
+                for _, row in rates.iterrows()
+            ],
+        }
+
+    hour_rates = compute_dimension_failure_rates(merchant_tx, "hour").sort_values("hour")
+    breakdowns["hour"] = {
+        "label": "Hour of Day",
+        "values": [
+            {
+                "value": f"{int(row['hour']):02d}:00",
+                "transaction_count": int(row["transaction_count"]),
+                "failure_count": int(row["failure_count"]),
+                "failure_rate": _clean(round(float(row["failure_rate"]), 4)),
+            }
+            for _, row in hour_rates.iterrows()
+        ],
+    }
+
+    dow_rates = compute_dimension_failure_rates(merchant_tx, "day_of_week").sort_values("day_of_week")
+    breakdowns["day_of_week"] = {
+        "label": "Day of Week",
+        "values": [
+            {
+                "value": _DAY_NAMES[int(row["day_of_week"])],
+                "transaction_count": int(row["transaction_count"]),
+                "failure_count": int(row["failure_count"]),
+                "failure_rate": _clean(round(float(row["failure_rate"]), 4)),
+            }
+            for _, row in dow_rates.iterrows()
+        ],
+    }
+
+    daily_metrics = compute_daily_merchant_metrics(merchant_tx)
+
+    return {
+        "merchant_id": merchant_id,
+        "date_range_applied": {"start_date": start_date, "end_date": end_date},
+        "daily": [
+            {
+                "date": row["date"].strftime("%Y-%m-%d") if hasattr(row["date"], "strftime") else str(row["date"]),
+                "transaction_count": int(row["transaction_count"]),
+                "failure_count": int(row["failure_count"]),
+                "failure_rate": _clean(round(float(row["failure_rate"]), 4)),
+                "transaction_volume": _clean(round(float(row["transaction_volume"]), 2)),
+                "average_transaction_value": _clean(round(float(row["average_transaction_value"]), 2)),
+                "failed_amount": _clean(round(float(row["failed_amount"]), 2)),
+            }
+            for _, row in daily_metrics.sort_values("date").iterrows()
+        ],
+        "breakdowns": breakdowns,
+    }

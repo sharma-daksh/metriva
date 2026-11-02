@@ -9,7 +9,7 @@ mounted here via app.include_router(...) — none exist yet by design.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import incidents, merchants
+from app.api.routes import audit, incidents, merchants, upload
 from app.config import settings
 
 app = FastAPI(
@@ -28,6 +28,8 @@ app.add_middleware(
 
 app.include_router(merchants.router, prefix=settings.API_PREFIX)
 app.include_router(incidents.router, prefix=settings.API_PREFIX)
+app.include_router(upload.router, prefix=settings.API_PREFIX)
+app.include_router(audit.router, prefix=settings.API_PREFIX)
 
 
 @app.get(f"{settings.API_PREFIX}/health")

@@ -53,3 +53,81 @@ export async function fetchIncident(incidentId) {
   if (!response.ok) throw new Error(`Failed to load incident ${incidentId} (${response.status})`);
   return response.json();
 }
+
+export async function fetchIncidentRootCause(incidentId) {
+  const response = await fetch(`${API_BASE_URL}/incidents/${incidentId}/root-cause`);
+  if (!response.ok) throw new Error(`Failed to load root cause for ${incidentId} (${response.status})`);
+  return response.json();
+}
+
+export async function fetchMerchantAnalytics(merchantId, { startDate, endDate } = {}) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start_date", startDate);
+  if (endDate) params.set("end_date", endDate);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_BASE_URL}/merchants/${merchantId}/analytics${query}`);
+  if (!response.ok) throw new Error(`Failed to load analytics for ${merchantId} (${response.status})`);
+  return response.json();
+}
+
+export async function fetchIncidentRecovery(incidentId) {
+  const response = await fetch(`${API_BASE_URL}/incidents/${incidentId}/recovery`);
+  if (!response.ok) throw new Error(`Failed to load recovery info for ${incidentId} (${response.status})`);
+  return response.json();
+}
+
+async function _throwWithDetail(response) {
+  let detail = `Request failed (${response.status})`;
+  try {
+    const body = await response.json();
+    if (body?.detail) detail = body.detail;
+  } catch {
+    // response wasn't JSON — keep the generic message
+  }
+  throw new Error(detail);
+}
+
+export async function previewUpload(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetch(`${API_BASE_URL}/upload/preview`, { method: "POST", body: formData });
+  if (!response.ok) await _throwWithDetail(response);
+  return response.json();
+}
+
+export async function commitUpload(file, mapping) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("mapping", JSON.stringify(mapping));
+  const response = await fetch(`${API_BASE_URL}/upload/commit`, { method: "POST", body: formData });
+  if (!response.ok) await _throwWithDetail(response);
+  return response.json();
+}
+
+export async function fetchUploadStatus() {
+  const response = await fetch(`${API_BASE_URL}/upload/status`);
+  if (!response.ok) throw new Error(`Failed to load dataset status (${response.status})`);
+  return response.json();
+}
+
+export async function fetchAuditLog({ incidentId, merchantId } = {}) {
+  const params = new URLSearchParams();
+  if (incidentId) params.set("incident_id", incidentId);
+  if (merchantId) params.set("merchant_id", merchantId);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_BASE_URL}/audit${query}`);
+  if (!response.ok) throw new Error(`Failed to load audit log (${response.status})`);
+  return response.json();
+}
+
+export async function executeRecovery(incidentId) {
+  const response = await fetch(`${API_BASE_URL}/incidents/${incidentId}/recovery/execute`, { method: "POST" });
+  if (!response.ok) await _throwWithDetail(response);
+  return response.json();
+}
+
+export async function resetToDemo() {
+  const response = await fetch(`${API_BASE_URL}/upload/reset-to-demo`, { method: "POST" });
+  if (!response.ok) throw new Error(`Failed to reset to demo (${response.status})`);
+  return response.json();
+}
