@@ -36,7 +36,7 @@ function DimensionBarChart({ title, data }) {
   const maxRate = Math.max(...chartData.map((d) => d["Failure rate %"]));
 
   return (
-    <div style={styles.chartCard}>
+    <div className="chart-card" style={styles.chartCard}>
       <h3 style={styles.chartTitle}>{data.label}</h3>
       <div style={{ width: "100%", height: 200 }}>
         <ResponsiveContainer>
@@ -107,11 +107,11 @@ export default function AnalyticsPage() {
   if (error) return <p style={{ color: "#991b1b" }}>Failed to load analytics: {error}</p>;
 
   return (
-    <div>
-      <div style={styles.headerRow}>
-        <h1 style={styles.h1}>Payment Analytics</h1>
-        <div style={styles.controls}>
-          <div style={styles.presetRow}>
+    <div className="page-root page-analytics">
+      <div className="page-heading" style={styles.headerRow}>
+        <h1 className="page-title" style={styles.h1}>Payment Analytics</h1>
+        <div className="analytics-controls" style={styles.controls}>
+          <div className="date-preset-row" style={styles.presetRow}>
             {DATE_PRESETS.map((preset) => (
               <button
                 key={preset.label}
@@ -138,7 +138,7 @@ export default function AnalyticsPage() {
       </div>
 
       {totals && (
-        <div style={styles.kpiRow}>
+        <div className="kpi-grid" style={styles.kpiRow}>
           <div style={styles.kpiCard}>
             <div style={styles.kpiLabel}>GMV / Payment Volume</div>
             <div style={styles.kpiValue}>{formatInr(totals.volume)}</div>
@@ -158,7 +158,7 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Failure Rate Over Time</h2>
         <div style={{ width: "100%", height: 240 }}>
           <ResponsiveContainer>
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Transaction Volume Over Time</h2>
         <div style={{ width: "100%", height: 220 }}>
           <ResponsiveContainer>
@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
       </section>
 
       {analytics && (
-        <section style={styles.section}>
+        <section className="panel-card" style={styles.section}>
           <h2 style={styles.h2}>Failure Rate by Attribute</h2>
           <p style={styles.subnote}>Red bar marks the worst-performing value in each attribute.</p>
           <div style={styles.chartGrid}>

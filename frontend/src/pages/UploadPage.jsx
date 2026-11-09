@@ -75,8 +75,8 @@ export default function UploadPage() {
   const missingRequired = CANONICAL_FIELDS.filter((f) => f.required && !mapping[f.field]);
 
   return (
-    <div>
-      <h1 style={styles.h1}>Upload Payment Data</h1>
+    <div className="page-root page-upload">
+      <h1 className="page-title" style={styles.h1}>Upload Payment Data</h1>
       <p style={styles.subtitle}>
         Upload your own transaction CSV. It goes through the same validation, anomaly detection,
         and incident pipeline as the built-in demo — once activated, the whole dashboard reflects
@@ -87,6 +87,7 @@ export default function UploadPage() {
 
       {step === STEPS.PICK && (
         <div
+          className={`upload-dropzone${dragOver ? " is-dragging" : ""}`}
           style={{ ...styles.dropzone, ...(dragOver ? styles.dropzoneActive : {}) }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -109,7 +110,7 @@ export default function UploadPage() {
 
       {step === STEPS.MAPPING && preview && (
         <div>
-          <div style={styles.summaryBox}>
+          <div className="summary-panel" style={styles.summaryBox}>
             <strong>{preview.row_count.toLocaleString("en-IN")} rows</strong> detected in{" "}
             <strong>{preview.filename}</strong>, with {preview.columns_found.length} columns.
           </div>
@@ -120,7 +121,7 @@ export default function UploadPage() {
             continuing — fields left unmapped are treated as unavailable, never guessed.
           </p>
 
-          <div style={styles.mappingTable}>
+          <div className="mapping-table" style={styles.mappingTable}>
             <div style={styles.mappingHeaderRow}>
               <div>Metriva field</div>
               <div>Your column</div>
@@ -154,8 +155,8 @@ export default function UploadPage() {
           )}
 
           <h2 style={styles.h2}>Preview</h2>
-          <div style={styles.previewTableWrap}>
-            <table style={styles.previewTable}>
+          <div className="table-shell preview-table-shell" style={styles.previewTableWrap}>
+            <table className="data-table preview-table" style={styles.previewTable}>
               <thead>
                 <tr>{preview.columns_found.map((c) => <th key={c} style={styles.previewTh}>{c}</th>)}</tr>
               </thead>
@@ -171,12 +172,12 @@ export default function UploadPage() {
             </table>
           </div>
 
-          <div style={styles.actionRow}>
-            <button style={styles.secondaryBtn} onClick={() => { setStep(STEPS.PICK); setFile(null); setPreview(null); }}>
+          <div className="action-row" style={styles.actionRow}>
+            <button className="secondary-btn" style={styles.secondaryBtn} onClick={() => { setStep(STEPS.PICK); setFile(null); setPreview(null); }}>
               Choose a different file
             </button>
             <button
-              style={{ ...styles.primaryBtn, ...(missingRequired.length > 0 ? styles.btnDisabled : {}) }}
+              className="primary-btn" style={{ ...styles.primaryBtn, ...(missingRequired.length > 0 ? styles.btnDisabled : {}) }}
               disabled={missingRequired.length > 0 || busy}
               onClick={handleCommit}
             >
@@ -193,7 +194,7 @@ export default function UploadPage() {
               <div style={styles.successBox}>{result.message}</div>
 
               <h2 style={styles.h2}>Data Quality</h2>
-              <div style={styles.qualityGrid}>
+              <div className="quality-grid" style={styles.qualityGrid}>
                 <QualityStat label="Rows" value={result.quality_report.rows} />
                 <QualityStat label="Valid rows" value={result.quality_report.valid_rows} good />
                 <QualityStat label="Duplicate rows" value={result.quality_report.duplicate_rows} />
@@ -217,8 +218,8 @@ export default function UploadPage() {
                 <strong>{result.summary.incidents_detected}</strong> incident(s) detected.
               </div>
 
-              <div style={styles.actionRow}>
-                <button style={styles.primaryBtn} onClick={() => navigate("/")}>
+              <div className="action-row" style={styles.actionRow}>
+                <button className="primary-btn" style={styles.primaryBtn} onClick={() => navigate("/")}>
                   Go to Overview
                 </button>
               </div>
@@ -227,12 +228,12 @@ export default function UploadPage() {
             <>
               <div style={styles.errorBox}>{result.message}</div>
               <h2 style={styles.h2}>Data Quality</h2>
-              <div style={styles.qualityGrid}>
+              <div className="quality-grid" style={styles.qualityGrid}>
                 <QualityStat label="Rows" value={result.quality_report.rows} />
                 <QualityStat label="Valid rows" value={result.quality_report.valid_rows} />
               </div>
-              <div style={styles.actionRow}>
-                <button style={styles.secondaryBtn} onClick={() => { setStep(STEPS.PICK); setFile(null); setPreview(null); setResult(null); }}>
+              <div className="action-row" style={styles.actionRow}>
+                <button className="secondary-btn" style={styles.secondaryBtn} onClick={() => { setStep(STEPS.PICK); setFile(null); setPreview(null); setResult(null); }}>
                   Try a different file
                 </button>
               </div>

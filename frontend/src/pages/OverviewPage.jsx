@@ -58,9 +58,9 @@ export default function OverviewPage() {
   if (error) return <p style={{ color: "#991b1b" }}>Failed to load dashboard: {error}</p>;
 
   return (
-    <div>
-      <div style={styles.headerRow}>
-        <h1 style={styles.h1}>Overview</h1>
+    <div className="page-root page-overview">
+      <div className="page-heading" style={styles.headerRow}>
+        <h1 className="page-title" style={styles.h1}>Overview</h1>
         <select
           value={selectedMerchant || ""}
           onChange={(e) => setSelectedMerchant(e.target.value)}
@@ -74,7 +74,7 @@ export default function OverviewPage() {
         </select>
       </div>
 
-      <div style={styles.kpiRow}>
+      <div className="kpi-grid" style={styles.kpiRow}>
         <KpiCard
           label="Merchant Health"
           value={selectedMerchantData ? `${selectedMerchantData.health_score}/100` : "—"}
@@ -99,7 +99,7 @@ export default function OverviewPage() {
         />
       </div>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Payment Health — {selectedMerchant}</h2>
         <div style={{ width: "100%", height: 260 }}>
           <ResponsiveContainer>
@@ -114,14 +114,14 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Active Alerts</h2>
         {openAlerts.length === 0 ? (
           <p style={{ color: "#6b7280" }}>No active incidents right now.</p>
         ) : (
-          <div style={styles.alertList}>
+          <div className="stack-list" style={styles.alertList}>
             {openAlerts.map((inc) => (
-              <Link to={`/incidents/${inc.incident_id}`} key={inc.incident_id} style={styles.alertCard}>
+              <Link className="alert-row" to={`/incidents/${inc.incident_id}`} key={inc.incident_id} style={styles.alertCard}>
                 <div style={styles.alertTop}>
                   <SeverityBadge severity={inc.severity} />
                   <StatusBadge status={inc.status} />

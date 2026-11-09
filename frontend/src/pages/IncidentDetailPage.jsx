@@ -33,12 +33,12 @@ export default function IncidentDetailPage() {
     : null;
 
   return (
-    <div>
-      <Link to="/incidents" style={styles.backLink}>← All incidents</Link>
+    <div className="page-root page-incident-detail">
+      <Link className="back-link" to="/incidents" style={styles.backLink}>← All incidents</Link>
 
-      <div style={styles.titleRow}>
+      <div className="page-heading" style={styles.titleRow}>
         <div>
-          <h1 style={styles.h1}>Payment Degradation</h1>
+          <h1 className="page-title" style={styles.h1}>Payment Degradation</h1>
           <div style={styles.subtitle}>{incident.merchant_id} · {incident.incident_id}</div>
         </div>
         <div style={styles.badgeRow}>
@@ -47,7 +47,7 @@ export default function IncidentDetailPage() {
         </div>
       </div>
 
-      <div style={styles.kpiRow}>
+      <div className="kpi-grid" style={styles.kpiRow}>
         <KpiCard label="Baseline Failure Rate" value={formatPct(incident.baseline_failure_rate)} />
         <KpiCard
           label="Incident Failure Rate"
@@ -63,9 +63,9 @@ export default function IncidentDetailPage() {
         <KpiCard label="Confidence" value={formatPct(incident.confidence)} />
       </div>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Timeline</h2>
-        <div style={styles.timeline}>
+        <div className="incident-timeline" style={styles.timeline}>
           {TIMELINE_STAGES.map((stage, i) => (
             <div key={stage} style={styles.timelineStep}>
               <div
@@ -93,9 +93,9 @@ export default function IncidentDetailPage() {
         </p>
       </section>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Revenue Impact</h2>
-        <div style={styles.revenueGrid}>
+        <div className="revenue-grid" style={styles.revenueGrid}>
           <div>
             <div style={styles.revLabel}>Failed transactions</div>
             <div style={styles.revValue}>{incident.failed_transactions}</div>
@@ -117,7 +117,7 @@ export default function IncidentDetailPage() {
         </p>
       </section>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Why is this happening?</h2>
         {!rootCause ? (
           <p style={{ color: "#6b7280" }}>Loading root-cause analysis…</p>
@@ -130,9 +130,9 @@ export default function IncidentDetailPage() {
               transaction attributes — network, receiving bank, device, customer state, and merchant
               category — to see which shifted the most.
             </p>
-            <div style={styles.dimensionList}>
+            <div className="dimension-list" style={styles.dimensionList}>
               {rootCause.dimensions.map((d) => (
-                <div key={d.dimension} style={styles.dimensionCard}>
+                <div className="dimension-card" key={d.dimension} style={styles.dimensionCard}>
                   <div style={styles.dimensionRank}>
                     {d.rank === 1 ? "Primary factor" : d.rank === 2 ? "Secondary factor" : "Additional factor"}
                   </div>
@@ -154,7 +154,7 @@ export default function IncidentDetailPage() {
         )}
       </section>
 
-      <section style={styles.section}>
+      <section className="panel-card" style={styles.section}>
         <h2 style={styles.h2}>Revenue Recovery</h2>
         {!recovery ? (
           <p style={{ color: "#6b7280" }}>Loading recovery recommendation…</p>
@@ -178,7 +178,7 @@ export default function IncidentDetailPage() {
             )}
 
             {recovery.simulation && (
-              <div style={styles.simGrid}>
+              <div className="sim-grid" style={styles.simGrid}>
                 <div>
                   <div style={styles.revLabel}>Eligible</div>
                   <div style={styles.revValue}>{recovery.simulation.eligible_count}</div>
@@ -217,6 +217,7 @@ export default function IncidentDetailPage() {
             {recovery.simulation && (
               <div style={{ marginTop: 16 }}>
                 <button
+                  className="execute-btn"
                   style={{ ...styles.executeBtn, ...(executing ? styles.executeBtnDisabled : {}) }}
                   disabled={executing}
                   onClick={async () => {

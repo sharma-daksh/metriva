@@ -24,10 +24,10 @@ export default function IncidentsPage() {
   }, [statusFilter]);
 
   return (
-    <div>
-      <div style={styles.headerRow}>
-        <h1 style={styles.h1}>Incidents</h1>
-        <div style={styles.filterRow}>
+    <div className="page-root page-incidents">
+      <div className="page-heading" style={styles.headerRow}>
+        <h1 className="page-title" style={styles.h1}>Incidents</h1>
+        <div className="filter-pills" style={styles.filterRow}>
           {STATUS_FILTERS.map((s) => (
             <button
               key={s}
@@ -49,8 +49,8 @@ export default function IncidentsPage() {
       ) : incidents.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No incidents match this filter.</p>
       ) : (
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
+        <div className="table-shell" style={styles.tableWrap}>
+          <table className="data-table" style={styles.table}>
             <thead>
               <tr>
                 {["Incident", "Merchant", "Started", "Duration", "Severity", "Failure Increase", "Revenue at Risk", "Status"].map((h) => (

@@ -18,8 +18,8 @@ export default function AuditPage() {
   }, []);
 
   return (
-    <div>
-      <h1 style={styles.h1}>Recovery Audit</h1>
+    <div className="page-root page-audit">
+      <h1 className="page-title" style={styles.h1}>Recovery Audit</h1>
       <p style={styles.subtitle}>Every recovery action taken, recorded — who, what, and the result.</p>
 
       {error && <p style={{ color: "#991b1b" }}>Failed to load audit log: {error}</p>}
@@ -31,8 +31,8 @@ export default function AuditPage() {
           and click Execute Recovery.
         </p>
       ) : (
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
+        <div className="table-shell" style={styles.tableWrap}>
+          <table className="data-table" style={styles.table}>
             <thead>
               <tr>
                 {["Time", "Incident", "Action", "Amount", "Decision", "Result", "Mode"].map((h) => (
